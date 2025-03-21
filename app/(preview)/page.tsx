@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { experimental_useObject } from "ai/react";
-import { questionsSchema } from "@/lib/schemas";
+import { questionsSchema, matchingPairsSchema } from "@/lib/schemas";
 import { z } from "zod";
 import { toast } from "sonner";
-import { FileUp, Plus, Loader2 } from "lucide-react";
+import { FileUp, Plus, Loader2, Puzzle, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,25 +16,28 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import Quiz from "@/components/quiz";
 import { Link } from "@/components/ui/link";
 import NextLink from "next/link";
-import { generateQuizTitle } from "./actions";
+import { generateQuizTitle, generateMatchingTitle } from "./actions";
 import { AnimatePresence, motion } from "framer-motion";
 import { VercelIcon, GitIcon } from "@/components/icons";
+import Quiz from "@/components/quiz";
+import MatchingGame from "@/components/MatchingGame";
+
+type Mode = "quiz" | "matching" | null;
 
 export default function ChatWithFiles() {
   const [files, setFiles] = useState<File[]>([]);
-  const [questions, setQuestions] = useState<z.infer<typeof questionsSchema>>(
-    [],
-  );
+  const [questions, setQuestions] = useState<z.infer<typeof questionsSchema>>([]);
+  const [matchingPairs, setMatchingPairs] = useState<z.infer<typeof matchingPairsSchema>>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [title, setTitle] = useState<string>();
+  const [mode, setMode] = useState<Mode>(null);
 
   const {
-    submit,
+    submit: submitQuiz,
     object: partialQuestions,
-    isLoading,
+    isLoading: isLoadingQuiz,
   } = experimental_useObject({
     api: "/api/generate-quiz",
     schema: questionsSchema,
@@ -45,6 +48,23 @@ export default function ChatWithFiles() {
     },
     onFinish: ({ object }) => {
       setQuestions(object ?? []);
+    },
+  });
+
+  const {
+    submit: submitMatching,
+    object: partialPairs,
+    isLoading: isLoadingMatching,
+  } = experimental_useObject({
+    api: "/api/generate-matching",
+    schema: matchingPairsSchema,
+    initialValue: undefined,
+    onError: (error) => {
+      toast.error("Failed to generate matching game. Please try again.");
+      setFiles([]);
+    },
+    onFinish: ({ object }) => {
+      setMatchingPairs(object ?? []);
     },
   });
 
@@ -89,43 +109,41 @@ export default function ChatWithFiles() {
         data: await encodeFileAsBase64(file),
       })),
     );
-    submit({ files: encodedFiles });
-    const generatedTitle = await generateQuizTitle(encodedFiles[0].name);
-    setTitle(generatedTitle);
+
+    if (mode === "quiz") {
+      submitQuiz({ files: encodedFiles });
+      const generatedTitle = await generateQuizTitle(encodedFiles[0].name);
+      setTitle(generatedTitle);
+    } else if (mode === "matching") {
+      submitMatching({ files: encodedFiles });
+      const generatedTitle = await generateMatchingTitle(encodedFiles[0].name);
+      setTitle(generatedTitle);
+    }
   };
 
   const clearPDF = () => {
     setFiles([]);
     setQuestions([]);
+    setMatchingPairs([]);
+    setMode(null);
+    setTitle(undefined);
   };
 
-  const progress = partialQuestions ? (partialQuestions.length / 4) * 100 : 0;
+  const isLoading = isLoadingQuiz || isLoadingMatching;
+  const progress = mode === "quiz" 
+    ? (partialQuestions ? (partialQuestions.length / 4) * 100 : 0)
+    : (partialPairs ? (partialPairs.length / 6) * 100 : 0);
 
-  if (questions.length === 4) {
-    return (
-      <Quiz title={title ?? "Quiz"} questions={questions} clearPDF={clearPDF} />
-    );
+  if (questions.length === 4 && mode === "quiz") {
+    return <Quiz title={title ?? "Quiz"} questions={questions} clearPDF={clearPDF} />;
+  }
+
+  if (matchingPairs.length === 6 && mode === "matching") {
+    return <MatchingGame title={title ?? "Matching Game"} pairs={matchingPairs} clearPDF={clearPDF} />;
   }
 
   return (
-    <div
-      className="min-h-[100dvh] w-full flex justify-center"
-      onDragOver={(e) => {
-        e.preventDefault();
-        setIsDragging(true);
-      }}
-      onDragExit={() => setIsDragging(false)}
-      onDragEnd={() => setIsDragging(false)}
-      onDragLeave={() => setIsDragging(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setIsDragging(false);
-        console.log(e.dataTransfer.files);
-        handleFileChange({
-          target: { files: e.dataTransfer.files },
-        } as React.ChangeEvent<HTMLInputElement>);
-      }}
-    >
+    <div className="min-h-[100dvh] w-full flex justify-center">
       <AnimatePresence>
         {isDragging && (
           <motion.div
@@ -154,55 +172,75 @@ export default function ChatWithFiles() {
           </div>
           <div className="space-y-2">
             <CardTitle className="text-2xl font-bold">
-              PDF Quiz Generator
+              PDF Learning Tools
             </CardTitle>
             <CardDescription className="text-base">
-              Upload a PDF to generate an interactive quiz based on its content
-              using the <Link href="https://sdk.vercel.ai">AI SDK</Link> and{" "}
-              <Link href="https://sdk.vercel.ai/providers/ai-sdk-providers/google-generative-ai">
-                Google&apos;s Gemini Pro
-              </Link>
-              .
+              Upload a PDF to generate interactive learning materials using AI
             </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmitWithFiles} className="space-y-4">
-            <div
-              className={`relative flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 transition-colors hover:border-muted-foreground/50`}
-            >
-              <input
-                type="file"
-                onChange={handleFileChange}
-                accept="application/pdf"
-                className="absolute inset-0 opacity-0 cursor-pointer"
-              />
-              <FileUp className="h-8 w-8 mb-2 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground text-center">
-                {files.length > 0 ? (
-                  <span className="font-medium text-foreground">
-                    {files[0].name}
-                  </span>
-                ) : (
-                  <span>Drop your PDF here or click to browse.</span>
-                )}
-              </p>
+          {!mode ? (
+            <div className="flex gap-4">
+              <Button
+                className="flex-1 h-24 flex-col"
+                onClick={() => setMode("quiz")}
+              >
+                <ListChecks className="h-8 w-8 mb-2" />
+                Quiz
+              </Button>
+              <Button
+                className="flex-1 h-24 flex-col"
+                onClick={() => setMode("matching")}
+              >
+                <Puzzle className="h-8 w-8 mb-2" />
+                Matching
+              </Button>
             </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={files.length === 0}
-            >
-              {isLoading ? (
-                <span className="flex items-center space-x-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Generating Quiz...</span>
-                </span>
-              ) : (
-                "Generate Quiz"
-              )}
-            </Button>
-          </form>
+          ) : (
+            <form onSubmit={handleSubmitWithFiles} className="space-y-4">
+              <div className="relative flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 transition-colors hover:border-muted-foreground/50">
+                <input
+                  type="file"
+                  onChange={handleFileChange}
+                  accept="application/pdf"
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+                <FileUp className="h-8 w-8 mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground text-center">
+                  {files.length > 0 ? (
+                    <span className="font-medium text-foreground">
+                      {files[0].name}
+                    </span>
+                  ) : (
+                    <span>Drop your PDF here or click to browse.</span>
+                  )}
+                </p>
+              </div>
+              <div className="flex gap-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setMode(null)}
+                >
+                  Back
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  disabled={files.length === 0}
+                >
+                  {isLoading ? (
+                    <span className="flex items-center space-x-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Generating {mode === "quiz" ? "Quiz" : "Matching Game"}...</span>
+                    </span>
+                  ) : (
+                    `Generate ${mode === "quiz" ? "Quiz" : "Matching Game"}`
+                  )}
+                </Button>
+              </div>
+            </form>
+          )}
         </CardContent>
         {isLoading && (
           <CardFooter className="flex flex-col space-y-4">
@@ -215,15 +253,16 @@ export default function ChatWithFiles() {
             </div>
             <div className="w-full space-y-2">
               <div className="grid grid-cols-6 sm:grid-cols-4 items-center space-x-2 text-sm">
-                <div
-                  className={`h-2 w-2 rounded-full ${
-                    isLoading ? "bg-yellow-500/50 animate-pulse" : "bg-muted"
-                  }`}
-                />
+                <div className={`h-2 w-2 rounded-full ${isLoading ? "bg-yellow-500/50 animate-pulse" : "bg-muted"}`} />
                 <span className="text-muted-foreground text-center col-span-4 sm:col-span-2">
-                  {partialQuestions
-                    ? `Generating question ${partialQuestions.length + 1} of 4`
-                    : "Analyzing PDF content"}
+                  {mode === "quiz" 
+                    ? partialQuestions
+                      ? `Generating question ${partialQuestions.length + 1} of 4`
+                      : "Analyzing PDF content"
+                    : partialPairs
+                      ? `Generating pair ${partialPairs.length + 1} of 6`
+                      : "Analyzing PDF content"
+                  }
                 </span>
               </div>
             </div>

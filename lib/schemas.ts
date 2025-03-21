@@ -18,3 +18,12 @@ export const questionSchema = z.object({
 export type Question = z.infer<typeof questionSchema>;
 
 export const questionsSchema = z.array(questionSchema).length(4);
+
+export const matchingPairSchema = z.object({
+  term: z.string(),
+  definition: z.string(),
+});
+
+export const matchingPairsSchema = z.array(matchingPairSchema);
+
+export type MatchingPair = z.infer<typeof matchingPairSchema>;
