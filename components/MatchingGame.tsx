@@ -20,6 +20,7 @@ export default function MatchingGame({ pairs, clearPDF, title }: MatchingGamePro
   const [selectedTermId, setSelectedTermId] = useState<number | null>(null)
   const [matchedPairs, setMatchedPairs] = useState<Set<number>>(new Set())
   const [score, setScore] = useState<number>(0)
+  const [lastSelectionCorrect, setLastSelectionCorrect] = useState<boolean | null>(null)
 
   // Initialize the game
   useEffect(() => {
@@ -54,11 +55,17 @@ export default function MatchingGame({ pairs, clearPDF, title }: MatchingGamePro
       // Correct match
       setMatchedPairs((prev) => new Set([...prev, id]))
       setScore((prev) => prev + 1)
-      setSelectedTermId(null)
-    } else {
-      // Incorrect match
+      setLastSelectionCorrect(true)
       setTimeout(() => {
         setSelectedTermId(null)
+        setLastSelectionCorrect(null)
+      }, 1000)
+    } else {
+      // Incorrect match
+      setLastSelectionCorrect(false)
+      setTimeout(() => {
+        setSelectedTermId(null)
+        setLastSelectionCorrect(null)
       }, 1000)
     }
   }
@@ -100,8 +107,10 @@ export default function MatchingGame({ pairs, clearPDF, title }: MatchingGamePro
                     matchedPairs.has(id)
                       ? "bg-green-100 dark:bg-green-900/20"
                       : selectedTermId === id
-                        ? "ring-2 ring-primary"
-                        : "hover:bg-accent"
+                      ? lastSelectionCorrect === false
+                        ? "bg-red-100 dark:bg-red-900/20"
+                        : "ring-2 ring-primary"
+                      : "hover:bg-accent"
                   }`}
                   onClick={() => handleTermClick(id)}
                 >
@@ -119,7 +128,11 @@ export default function MatchingGame({ pairs, clearPDF, title }: MatchingGamePro
                 <Card
                   key={`def-${id}`}
                   className={`p-4 cursor-pointer transition-all ${
-                    matchedPairs.has(id) ? "bg-green-100 dark:bg-green-900/20" : "hover:bg-accent"
+                    matchedPairs.has(id)
+                      ? "bg-green-100 dark:bg-green-900/20"
+                      : selectedTermId === id && lastSelectionCorrect === false
+                      ? "bg-red-100 dark:bg-red-900/20"
+                      : "hover:bg-accent"
                   }`}
                   onClick={() => handleDefinitionClick(id)}
                 >
