@@ -27,3 +27,14 @@ export const matchingPairSchema = z.object({
 export const matchingPairsSchema = z.array(matchingPairSchema);
 
 export type MatchingPair = z.infer<typeof matchingPairSchema>;
+
+
+
+export const flashcardSchema = z.object({
+  question: z.string().describe("The question displayed on the front of the flashcard."),
+  answer: z.string().describe("The answer displayed on the back of the flashcard."),
+})
+
+export type Flashcard = z.infer<typeof flashcardSchema>
+
+export const flashcardsSchema = z.array(flashcardSchema).length(5).describe("An array of flashcards.")
