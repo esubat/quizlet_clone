@@ -1,12 +1,12 @@
-import { questionSchema, questionsSchema } from "@/lib/schemas";
-import { google } from "@ai-sdk/google";
-import { streamObject } from "ai";
+import { questionSchema, questionsSchema } from "@/lib/schemas"
+import { google } from "@ai-sdk/google"
+import { streamObject } from "ai"
 
-export const maxDuration = 60;
+export const maxDuration = 60
 
 export async function POST(req: Request) {
-  const { files } = await req.json();
-  const firstFile = files[0].data;
+  const { files } = await req.json()
+  const firstFile = files[0].data
 
   const result = streamObject({
     model: google("gemini-1.5-pro-latest"),
@@ -34,12 +34,13 @@ export async function POST(req: Request) {
     schema: questionSchema,
     output: "array",
     onFinish: ({ object }) => {
-      const res = questionsSchema.safeParse(object);
+      const res = questionsSchema.safeParse(object)
       if (res.error) {
-        throw new Error(res.error.errors.map((e) => e.message).join("\n"));
+        throw new Error(res.error.errors.map((e) => e.message).join("\n"))
       }
     },
-  });
+  })
 
-  return result.toTextStreamResponse();
+  return result.toTextStreamResponse()
 }
+
