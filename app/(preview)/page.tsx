@@ -237,6 +237,19 @@ export default function ChatWithFiles() {
             )}
           </div>
 
+          {/* Loading bar visible in all tabs */}
+          {isLoading && (
+            <div className="mb-4">
+              <div className="w-full space-y-1">
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Progress</span>
+                  <span>{Math.round(progress)}%</span>
+                </div>
+                <Progress value={progress} className="h-2" />
+              </div>
+            </div>
+          )}
+
           <TabsContent value="upload" className="w-full">
             <Card className="w-full border-0 sm:border">
               <CardHeader className="text-center space-y-6">
@@ -409,15 +422,6 @@ export default function ChatWithFiles() {
           <GitIcon />
           View Source Code
         </NextLink>
-
-        {/* <NextLink
-          target="_blank"
-          href="https://vercel.com/templates/next.js/ai-quiz-generator"
-          className="flex flex-row gap-2 items-center bg-zinc-900 px-2 py-1.5 rounded-md text-zinc-50 hover:bg-zinc-950 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-50"
-        >
-          <VercelIcon size={14} />
-          Deploy with Vercel
-        </NextLink> */}
       </motion.div>
     </div>
   )
